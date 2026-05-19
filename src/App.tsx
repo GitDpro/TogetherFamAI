@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Activity, Heart, Calendar, MessageSquare, Send, Sparkles, RefreshCw } from "lucide-react";
+import { Users, Activity, Heart, Calendar, MessageSquare, Send, Sparkles, RefreshCw, Settings, Plus, X } from "lucide-react";
 
 type FamilyMember = {
   id: string;
@@ -8,6 +8,8 @@ type FamilyMember = {
   screenTimeHours: number;
   mood: string;
   avatar: string;
+  timeFree?: string;
+  description?: string;
 };
 
 export default function App() {
@@ -17,7 +19,7 @@ export default function App() {
     { id: "3", name: "Alex", role: "Teenager", screenTimeHours: 8.5, mood: "Disconnected", avatar: "👦" },
     { id: "4", name: "Mia", role: "Kid", screenTimeHours: 2.0, mood: "Energetic", avatar: "👧" }
   ]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "planner">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "planner" | "onboarding">("dashboard");
   const [selectedMember, setSelectedMember] = useState<string>("3"); // Default to Teenager
 
   // Simulated refresh for the dashboard
@@ -27,7 +29,12 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const data = await res.json();
-        setMembers(data);
+        if (data && data.length > 0) {
+           setMembers(data);
+           if (!data.find(m => m.id === selectedMember)) {
+             setSelectedMember(data[0].id);
+           }
+        }
         return;
       }
       throw new Error("Invalid response");
@@ -53,17 +60,33 @@ export default function App() {
           <Heart className="w-6 h-6 fill-indigo-500" />
           <h1 className="text-xl font-semibold tracking-tight text-white">FamSync<span className="text-indigo-400 font-light">AI</span></h1>
         </div>
-        <nav className="flex gap-1 bg-neutral-900 p-1 rounded-full border border-neutral-800">
+        <nav className="flex gap-1 bg-neutral-900 p-1 rounded-full border border-neutral-800 hidden md:flex">
           <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} icon={<Activity className="w-4 h-4" />} label="Dashboard" />
           <TabButton active={activeTab === "chat"} onClick={() => setActiveTab("chat")} icon={<MessageSquare className="w-4 h-4" />} label="AI Chat" />
           <TabButton active={activeTab === "planner"} onClick={() => setActiveTab("planner")} icon={<Calendar className="w-4 h-4" />} label="Planner" />
+          <TabButton active={activeTab === "onboarding"} onClick={() => setActiveTab("onboarding")} icon={<Settings className="w-4 h-4" />} label="Configure Family" />
         </nav>
+        {/* Mobile quick config button */}
+        <button onClick={() => setActiveTab("onboarding")} className="md:hidden p-2 text-neutral-400 hover:text-white bg-neutral-900 rounded-full border border-neutral-800">
+           <Settings className="w-5 h-5"/>
+        </button>
       </header>
 
       <main className="max-w-5xl mx-auto p-6 md:p-8 mt-4">
         {activeTab === "dashboard" && <Dashboard members={members} onRefresh={fetchMembers} />}
         {activeTab === "chat" && <Chat members={members} selectedMember={selectedMember} onSelectMember={setSelectedMember} onMoodUpdated={fetchMembers} />}
         {activeTab === "planner" && <Planner />}
+        {activeTab === "onboarding" && <Onboarding currentMembers={members} onSave={async (newMembers) => {
+          setMembers(newMembers);
+          setActiveTab("dashboard");
+          try {
+            await fetch("/api/members", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ members: newMembers })
+            });
+          } catch(e) {}
+        }} />}
       </main>
     </div>
   );
@@ -400,6 +423,111 @@ function Planner() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function Onboarding({ currentMembers, onSave }: { currentMembers: FamilyMember[], onSave: (members: FamilyMember[]) => void }) {
+  const [editingMembers, setEditingMembers] = useState<FamilyMember[]>(currentMembers);
+
+  const addMember = () => {
+    if (editingMembers.length >= 8) return;
+    setEditingMembers([...editingMembers, {
+      id: Math.random().toString(36).substring(7),
+      name: "",
+      role: "Member",
+      screenTimeHours: 0,
+      mood: "Neutral",
+      avatar: "👤",
+      timeFree: "",
+      description: ""
+    }]);
+  };
+
+  const updateMember = (id: string, field: string, value: any) => {
+    setEditingMembers(editingMembers.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+
+  const removeMember = (id: string) => {
+    setEditingMembers(editingMembers.filter(m => m.id !== id));
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold text-white">Family Configuration</h2>
+        <p className="text-neutral-400 mt-1">Add up to 8 members to personalize the AI assistant.</p>
+      </div>
+
+      <div className="space-y-4 mb-8">
+        {editingMembers.map((member, i) => (
+          <div key={member.id} className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl relative group">
+            <button 
+              onClick={() => removeMember(member.id)}
+              className="absolute top-4 right-4 p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-3xl bg-neutral-800 w-12 h-12 flex items-center justify-center rounded-xl border border-neutral-700 cursor-pointer">
+                {member.avatar}
+              </div>
+              <div className="flex-1 grid grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={member.name}
+                  onChange={(e) => updateMember(member.id, "name", e.target.value)}
+                  className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+                <select
+                  value={member.role}
+                  onChange={(e) => updateMember(member.id, "role", e.target.value)}
+                  className="bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option>Parent</option>
+                  <option>Teenager</option>
+                  <option>Kid</option>
+                  <option>Grandparent</option>
+                  <option>Member</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm mt-3 border-t border-neutral-800 pt-3">
+              <div>
+                 <label className="block text-neutral-400 text-xs mb-1">Avg Screen Time (hrs)</label>
+                 <input type="number" step="0.5" value={member.screenTimeHours} onChange={e => updateMember(member.id, "screenTimeHours", parseFloat(e.target.value) || 0)} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                 <label className="block text-neutral-400 text-xs mb-1">Free Time (e.g. 6PM-8PM)</label>
+                 <input type="text" placeholder="6PM-8PM" value={member.timeFree || ""} onChange={e => updateMember(member.id, "timeFree", e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div className="col-span-2">
+                 <label className="block text-neutral-400 text-xs mb-1">Short Description (for AI context)</label>
+                 <input type="text" placeholder="Loves video games, studying for finals..." value={member.description || ""} onChange={e => updateMember(member.id, "description", e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <button 
+          onClick={addMember}
+          disabled={editingMembers.length >= 8}
+          className="flex items-center gap-2 px-4 py-2 border border-neutral-700 text-neutral-300 rounded-full text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Add Member
+        </button>
+        
+        <button 
+          onClick={() => onSave(editingMembers)}
+          className="px-6 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium hover:bg-indigo-500 transition-colors"
+        >
+          Save & Sync
+        </button>
+      </div>
     </div>
   );
 }

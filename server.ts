@@ -44,8 +44,11 @@ let chats: ChatMessage[] = [];
 
 
 // Helper to call gemini with backoff and retry
-async function generateWithRetry(prompt: string, retries = 2): Promise<any> {
-  if (!ai) throw new Error("AI not initialized");
+async function generateWithRetry(prompt: string, retries = 1): Promise<any> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("AI not initialized - Missing GEMINI_API_KEY");
+  
+  const ai = new GoogleGenAI({ apiKey });
   
   for (let i = 0; i <= retries; i++) {
     try {
@@ -76,6 +79,16 @@ app.get("/api/members", (req, res) => {
   res.json(familyMembers);
 });
 
+// Update family members (Onboarding)
+app.post("/api/members", (req, res) => {
+  if (Array.isArray(req.body.members)) {
+    familyMembers = req.body.members;
+    // Clear chats when family changes
+    chats = [];
+  }
+  res.json({ success: true, members: familyMembers });
+});
+
 // Chat with AI and Perform Sentiment Analysis
 app.post("/api/chat", async (req, res) => {
   const { memberId, text } = req.body;
@@ -88,10 +101,10 @@ app.post("/api/chat", async (req, res) => {
   // Save user message
   chats.push({ memberId, text, sender: "user" });
 
-  if (!ai) {
+  if (!process.env.GEMINI_API_KEY) {
     const fallbackReply = "I'm meant to analyze this, but my AI API key isn't set up yet! Please configure it in the settings.";
     chats.push({ memberId, text: fallbackReply, sender: "ai" });
-    return res.json({ reply: fallbackReply, newMood: member.mood });
+    return res.json({ reply: fallbackReply, newMood: member.mood, member });
   }
 
   try {
@@ -146,7 +159,7 @@ app.get("/api/chat/:memberId", (req, res) => {
 
 // Generate Activity Recommendation based on current family state
 app.post("/api/plan", async (req, res) => {
-  if (!ai) {
+  if (!process.env.GEMINI_API_KEY) {
     return res.status(500).json({ error: "AI not configured. Add GEMINI_API_KEY." });
   }
 

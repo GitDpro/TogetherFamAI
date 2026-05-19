@@ -1,0 +1,6 @@
+{
+  "name": "FamSync AI",
+  "description": "An AI-powered family assistant app that helps families reconnect by analyzing moods and suggesting bonding activities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

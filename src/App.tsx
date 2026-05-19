@@ -11,34 +11,25 @@ type FamilyMember = {
 };
 
 export default function App() {
-  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [members, setMembers] = useState<FamilyMember[]>([
+    { id: "1", name: "Dad", role: "Parent", screenTimeHours: 4.5, mood: "Stressed", avatar: "👨" },
+    { id: "2", name: "Mom", role: "Parent", screenTimeHours: 5.2, mood: "Busy", avatar: "👩" },
+    { id: "3", name: "Alex", role: "Teenager", screenTimeHours: 8.5, mood: "Disconnected", avatar: "👦" },
+    { id: "4", name: "Mia", role: "Kid", screenTimeHours: 2.0, mood: "Energetic", avatar: "👧" }
+  ]);
   const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "planner">("dashboard");
   const [selectedMember, setSelectedMember] = useState<string>("3"); // Default to Teenager
 
-  // Fetch initial family data
+  // Simulated refresh for the dashboard
   const fetchMembers = async () => {
-    try {
-      const res = await fetch("/api/members");
-      
-      // Check if response is actually JSON. If Vercel returns an HTML 404 page, this handles it.
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        setMembers(data);
-      } else {
-        throw new Error("API returned non-JSON response (likely HTML string)");
-      }
-    } catch (err) {
-      console.error("API failed, using fallback data for demo:", err);
-      // Fallback data if backend is not running (e.g. deployed frontend-only to Vercel)
-      setMembers([
-        { id: "1", name: "Dad", role: "Parent", screenTimeHours: 4.5, mood: "Stressed", avatar: "👨" },
-        { id: "2", name: "Mom", role: "Parent", screenTimeHours: 5.2, mood: "Busy", avatar: "👩" },
-        { id: "3", name: "Alex", role: "Teenager", screenTimeHours: 8.5, mood: "Disconnected", avatar: "👦" },
-        { id: "4", name: "Mia", role: "Kid", screenTimeHours: 2.0, mood: "Energetic", avatar: "👧" }
-      ]);
-    }
+    // Just a fun mock refresh to make the hackathon demo feel "live"
+    const shuffled = [...members].map(m => ({
+      ...m,
+      screenTimeHours: m.screenTimeHours + (Math.random() > 0.5 ? 0.1 : 0)
+    }));
+    setMembers(shuffled);
   };
+
 
   useEffect(() => {
     fetchMembers();
@@ -140,10 +131,15 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
 
   // Load chat history when member changes
   useEffect(() => {
-    fetch(`/api/chat/${selectedMember}`)
-      .then(res => res.json())
-      .then(data => setMessages(data))
-      .catch(console.error);
+    // Mock chat history based on selected member for frontend-only demo
+    const mockChats: Record<string, {sender: string, text: string}[]> = {
+      "1": [{ sender: "ai", text: "Hey Dad, I noticed your screen time is climbing. How are you feeling?" }],
+      "2": [{ sender: "user", text: "I'm so busy today." }, { sender: "ai", text: "I hear you, Mom. Would you like me to find a quick 15-minute gap for you to rest?" }],
+      "3": [{ sender: "ai", text: "Alex, you've been on your device a lot today. Everything okay?" }],
+      "4": [{ sender: "ai", text: "Mia, want to plan a fun game for the family later?" }]
+    };
+    
+    setMessages(mockChats[selectedMember] || []);
   }, [selectedMember]);
 
   useEffect(() => {
@@ -161,32 +157,12 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
     setMessages(prev => [...prev, { sender: "user", text: userText }]);
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId: activeMember.id, text: userText })
-      });
-      
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        setMessages(prev => [...prev, { sender: "ai", text: data.reply }]);
-        onMoodUpdated(); 
-      } else {
-        throw new Error("Invalid API response format");
-      }
-    } catch (err) {
-      console.error("Chat API failed, using fallback:", err);
-      // Fallback AI reply so the demo never breaks
-      setTimeout(() => {
-        setMessages(prev => [...prev, { sender: "ai", text: "I understand how you're feeling. I'm here to support the family." }]);
-        setLoading(false);
-      }, 1000);
-      return; 
-    } finally {
+    // Mock API delay and response for frontend-only demo
+    setTimeout(() => {
+      setMessages(prev => [...prev, { sender: "ai", text: "I understand how you're feeling. I'm here to support you and the family." }]);
       setLoading(false);
-    }
+      onMoodUpdated(); 
+    }, 1000);
   };
 
   return (
@@ -290,33 +266,16 @@ function Planner() {
 
   const generatePlan = async () => {
     setLoading(true);
-    try {
-      const res = await fetch("/api/plan", { method: "POST" });
-      
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        setRecommendation(data);
-      } else {
-        throw new Error("Invalid API response format");
-      }
-    } catch (err) {
-      console.error("Plan API failed, using fallback:", err);
-      // Fallback plan so the hackathon demo looks amazing even if backend is not responding
-      setTimeout(() => {
-        setRecommendation({
-          title: "Family Board Game Night",
-          rationale: "Since screen times are quite high today, a classic board game provides a structured, screen-free way to interact, reducing stress and helping everyone reconnect naturally.",
-          duration: "1.5 hours",
-          type: "Indoor"
-        });
-        setLoading(false);
-      }, 1500);
-    } finally {
-      if (document.readyState === "complete") {
-        setLoading(false);
-      }
-    }
+    // Mock API delay and response for frontend-only demo
+    setTimeout(() => {
+      setRecommendation({
+        title: "Family Board Game Night",
+        rationale: "Since screen times are quite high today, a classic board game provides a structured, screen-free way to interact, reducing stress and helping everyone reconnect naturally.",
+        duration: "1.5 hours",
+        type: "Indoor"
+      });
+      setLoading(false);
+    }, 1500);
   };
 
   return (

@@ -22,12 +22,23 @@ export default function App() {
 
   // Simulated refresh for the dashboard
   const fetchMembers = async () => {
-    // Just a fun mock refresh to make the hackathon demo feel "live"
-    const shuffled = [...members].map(m => ({
-      ...m,
-      screenTimeHours: m.screenTimeHours + (Math.random() > 0.5 ? 0.1 : 0)
-    }));
-    setMembers(shuffled);
+    try {
+      const res = await fetch("/api/members");
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        setMembers(data);
+        return;
+      }
+      throw new Error("Invalid response");
+    } catch (err) {
+      // Just a fun mock refresh to make the hackathon demo feel "live" if backend is down
+      const shuffled = [...members].map(m => ({
+        ...m,
+        screenTimeHours: parseFloat((m.screenTimeHours + (Math.random() > 0.5 ? 0.1 : 0)).toFixed(1))
+      }));
+      setMembers(shuffled);
+    }
   };
 
 
@@ -131,15 +142,23 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
 
   // Load chat history when member changes
   useEffect(() => {
-    // Mock chat history based on selected member for frontend-only demo
-    const mockChats: Record<string, {sender: string, text: string}[]> = {
-      "1": [{ sender: "ai", text: "Hey Dad, I noticed your screen time is climbing. How are you feeling?" }],
-      "2": [{ sender: "user", text: "I'm so busy today." }, { sender: "ai", text: "I hear you, Mom. Would you like me to find a quick 15-minute gap for you to rest?" }],
-      "3": [{ sender: "ai", text: "Alex, you've been on your device a lot today. Everything okay?" }],
-      "4": [{ sender: "ai", text: "Mia, want to plan a fun game for the family later?" }]
-    };
-    
-    setMessages(mockChats[selectedMember] || []);
+    fetch(`/api/chat/${selectedMember}`)
+      .then(res => {
+        if (!res.headers.get("content-type")?.includes("application/json")) throw new Error("Not JSON");
+        return res.json();
+      })
+      .then(data => setMessages(data))
+      .catch((err) => {
+        // Mock chat history based on selected member for frontend-only demo
+        const mockChats: Record<string, {sender: string, text: string}[]> = {
+          "1": [{ sender: "ai", text: "Hey Dad, I noticed your screen time is climbing. How are you feeling?" }],
+          "2": [{ sender: "user", text: "I'm so busy today." }, { sender: "ai", text: "I hear you, Mom. Would you like me to find a quick 15-minute gap for you to rest?" }],
+          "3": [{ sender: "ai", text: "Alex, you've been on your device a lot today. Everything okay?" }],
+          "4": [{ sender: "ai", text: "Mia, want to plan a fun game for the family later?" }]
+        };
+        
+        setMessages(mockChats[selectedMember] || []);
+      });
   }, [selectedMember]);
 
   useEffect(() => {
@@ -157,12 +176,30 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
     setMessages(prev => [...prev, { sender: "user", text: userText }]);
     setLoading(true);
 
-    // Mock API delay and response for frontend-only demo
-    setTimeout(() => {
-      setMessages(prev => [...prev, { sender: "ai", text: "I understand how you're feeling. I'm here to support you and the family." }]);
-      setLoading(false);
-      onMoodUpdated(); 
-    }, 1000);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: activeMember.id, text: userText })
+      });
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        setMessages(prev => [...prev, { sender: "ai", text: data.reply }]);
+        onMoodUpdated(); 
+        setLoading(false);
+        return;
+      }
+      throw new Error("Invalid API response format");
+    } catch (err) {
+      // Mock API delay and response for frontend-only demo
+      setTimeout(() => {
+        setMessages(prev => [...prev, { sender: "ai", text: "I understand how you're feeling. I'm here to support you and the family." }]);
+        setLoading(false);
+        onMoodUpdated(); 
+      }, 1000);
+    }
   };
 
   return (
@@ -266,16 +303,29 @@ function Planner() {
 
   const generatePlan = async () => {
     setLoading(true);
-    // Mock API delay and response for frontend-only demo
-    setTimeout(() => {
-      setRecommendation({
-        title: "Family Board Game Night",
-        rationale: "Since screen times are quite high today, a classic board game provides a structured, screen-free way to interact, reducing stress and helping everyone reconnect naturally.",
-        duration: "1.5 hours",
-        type: "Indoor"
-      });
-      setLoading(false);
-    }, 1500);
+    try {
+      const res = await fetch("/api/plan", { method: "POST" });
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        setRecommendation(data);
+        setLoading(false);
+        return;
+      }
+      throw new Error("Invalid API response format");
+    } catch (err) {
+      // Mock API delay and response for frontend-only demo
+      setTimeout(() => {
+        setRecommendation({
+          title: "Family Board Game Night",
+          rationale: "Since screen times are quite high today, a classic board game provides a structured, screen-free way to interact, reducing stress and helping everyone reconnect naturally.",
+          duration: "1.5 hours",
+          type: "Indoor"
+        });
+        setLoading(false);
+      }, 1500);
+    }
   };
 
   return (

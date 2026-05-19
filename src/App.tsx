@@ -21,24 +21,27 @@ export default function App() {
   ]);
   const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "planner" | "onboarding">("dashboard");
   const [selectedMember, setSelectedMember] = useState<string>("3"); // Default to Teenager
+  const [demoMode, setDemoMode] = useState(false);
 
   // Simulated refresh for the dashboard
   const fetchMembers = async () => {
     try {
       const res = await fetch("/api/members");
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
            setMembers(data);
+           setDemoMode(false);
            if (!data.find(m => m.id === selectedMember)) {
              setSelectedMember(data[0].id);
            }
         }
         return;
       }
-      throw new Error("Invalid response");
+      throw new Error("Invalid response or not JSON");
     } catch (err) {
+      setDemoMode(true);
       // Just a fun mock refresh to make the hackathon demo feel "live" if backend is down
       const shuffled = [...members].map(m => ({
         ...m,
@@ -72,6 +75,13 @@ export default function App() {
         </button>
       </header>
 
+      {demoMode && (
+        <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-6 py-2.5 text-sm text-center flex flex-col md:flex-row items-center justify-center gap-2 z-20 relative">
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span>Running in <strong>Local Demo Mode</strong>. The backend/AI API is unreachable, so fallback offline data is active for the hackathon preview.</span>
+        </div>
+      )}
+
       <main className="max-w-5xl mx-auto p-6 md:p-8 mt-4">
         {activeTab === "dashboard" && <Dashboard members={members} onRefresh={fetchMembers} />}
         {activeTab === "chat" && <Chat members={members} selectedMember={selectedMember} onSelectMember={setSelectedMember} onMoodUpdated={fetchMembers} />}
@@ -79,6 +89,7 @@ export default function App() {
         {activeTab === "onboarding" && <Onboarding currentMembers={members} onSave={async (newMembers) => {
           setMembers(newMembers);
           setActiveTab("dashboard");
+          if (demoMode) return; // Don't try to sync if offline
           try {
             await fetch("/api/members", {
               method: "POST",
@@ -207,7 +218,7 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
       });
       
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
         setMessages(prev => [...prev, { sender: "ai", text: data.reply }]);
         onMoodUpdated(); 
@@ -218,10 +229,10 @@ function Chat({ members, selectedMember, onSelectMember, onMoodUpdated }: { memb
     } catch (err) {
       // Mock API delay and response for frontend-only demo
       setTimeout(() => {
-        setMessages(prev => [...prev, { sender: "ai", text: "I understand how you're feeling. I'm here to support you and the family." }]);
+        setMessages(prev => [...prev, { sender: "ai", text: `(Demo Mode) I hear what you're saying. Since this is a demo without the AI backend right now, I'll log your thoughts safely!` }]);
         setLoading(false);
         onMoodUpdated(); 
-      }, 1000);
+      }, 1500);
     }
   };
 
@@ -330,7 +341,7 @@ function Planner() {
       const res = await fetch("/api/plan", { method: "POST" });
       
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
         setRecommendation(data);
         setLoading(false);
@@ -341,13 +352,13 @@ function Planner() {
       // Mock API delay and response for frontend-only demo
       setTimeout(() => {
         setRecommendation({
-          title: "Family Board Game Night",
-          rationale: "Since screen times are quite high today, a classic board game provides a structured, screen-free way to interact, reducing stress and helping everyone reconnect naturally.",
+          title: "Demo: Family Board Game Night",
+          rationale: "This is a demo recommendation since the AI backend is unreachable. It suggests board games provide a structured wait to interact!",
           duration: "1.5 hours",
           type: "Indoor"
         });
         setLoading(false);
-      }, 1500);
+      }, 2000);
     }
   };
 

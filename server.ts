@@ -223,4 +223,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only start the server natively if we are not running as a Vercel Serverless Function
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+// Export the app for Vercel Serverless Functions
+export default app;

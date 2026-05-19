@@ -78,7 +78,7 @@ export default function App() {
       {demoMode && (
         <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-6 py-2.5 text-sm text-center flex flex-col md:flex-row items-center justify-center gap-2 z-20 relative">
           <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>Running in <strong>Local Demo Mode</strong>. The backend/AI API is unreachable, so fallback offline data is active for the hackathon preview.</span>
+          <span>Running in <strong>Vercel Frontend-Only Mode</strong> (Backend Unreachable). Please redeploy with the new Vercel configs!</span>
         </div>
       )}
 
